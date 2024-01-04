@@ -288,7 +288,7 @@ function calculateHeadInFrame(results) {
   return points.every(point => {
     const point0 = landmarks[point]
     if (videoRatio > 1) {
-      return point0.x >= 0.2 && point0.x <= 0.8 && point0.y >= 0.8 && point0.y <= 0.8
+      return point0.x >= 0.2 && point0.x <= 0.8 && point0.y >= 0.2 && point0.y <= 0.8
     } else {
       return point0.x >= 0.3 && point0.x <= 0.7 && point0.y >= 0.15 && point0.y <= 0.85
     }
