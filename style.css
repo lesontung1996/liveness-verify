@@ -88,3 +88,8 @@ footer {
   height: 100%;
   object-fit: contain;
 }
+
+.min-dvh-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
