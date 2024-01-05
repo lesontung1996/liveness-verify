@@ -54,7 +54,7 @@ async function createFaceLandmarker() {
 createFaceLandmarker();
 
 function loadOpenCV() {
-  cv.then((result) => {
+  cv().then((result) => {
     cv = result
   })
 }
