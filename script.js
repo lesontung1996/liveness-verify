@@ -167,8 +167,8 @@ function setVideoDimension() {
   canvasElement.width = actualWidth;
   canvasElement.height = actualHeight;
   webcamOverlay.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`)
-  webcamOverlayOval.setAttribute("rx", ratio > 1 ? actualWidth * 0.6 : actualHeight * 0.8 * 0.35)
-  webcamOverlayOval.setAttribute("ry", ratio > 1 ? actualWidth / 0.8 * 0.6 : actualHeight * 0.35)
+  webcamOverlayOval.setAttribute("rx", ratio > 1 ? actualWidth * 0.3 : actualHeight * 0.8 * 0.35)
+  webcamOverlayOval.setAttribute("ry", ratio > 1 ? actualWidth / 0.8 * 0.3 : actualHeight * 0.35)
 }
 
 function calculateHeadPose(results) {
