@@ -1,13 +1,13 @@
 
 import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-const { FaceLandmarker, FilesetResolver, DrawingUtils } = vision;
+const { FaceLandmarker, FilesetResolver } = vision;
 
 const questionList = {
-  blink: "Blink",
-  up: "Turn Head Up",
-  down: "Turn Head Down",
-  left: "Turn Head Left",
-  right: "Turn Head Right",
+  blink: "Blink your eyes",
+  up: "Head up",
+  down: "Head down",
+  left: "Turn your face left",
+  right: "Turn your face right",
 }
 
 const headposes = {
@@ -29,6 +29,7 @@ let runningMode = "IMAGE";
 let webcamRunning = false;
 let mediaStream;
 
+let randomQuestionList
 let testStarted = false
 let roll = 0, pitch = 0, yaw = 0;
 let x, y, z;
@@ -130,7 +131,6 @@ function enableCam(event) {
 }
 let lastVideoTime = -1;
 let results = undefined;
-const drawingUtils = new DrawingUtils(canvasCtx);
 async function predictWebcam() {
   setVideoDimension()
   // Now let's start detecting the stream.
@@ -221,7 +221,6 @@ function calculateHeadPose(results) {
 
   if (results.faceLandmarks) {
     for (const landmarks of results.faceLandmarks) {
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#C0C0C070", lineWidth: 1 });
       for (const point of points) {
         var point0 = landmarks[point];
         const x = point0.x * width;
@@ -316,6 +315,7 @@ function startLivenessTest () {
   if (testStarted === true) {
     return
   }
+  randomQuestionList = generateQuestionList()
 
   startTestHeadInFrame()
   testStarted = true
@@ -342,8 +342,9 @@ function startTestHeadInFrame() {
 }
 
 function startQuestion (currentStep) {
-  const questionKey = Object.keys(questionList)[currentStep]
-  instructionElement.textContent = `Question ${currentStep + 1}: ${questionList[questionKey]}`
+  const questionObject = randomQuestionList[currentStep]
+  const questionKey = questionObject.key
+  instructionElement.textContent = `${questionObject.text}`
 
   const currentInterval = setInterval(() => {
     if (questionKey === 'blink') {
@@ -362,6 +363,33 @@ function startQuestion (currentStep) {
   }, 100)
 }
 
+function generateQuestionList() {
+  const randomizedList = Object.keys(questionList).map(key => ({
+    value: {
+      key,
+      text: questionList[key],
+    },
+    sort: Math.random()
+  }))
+  .sort((a, b) => a.sort - b.sort)
+  .map(({ value }) => value)
+
+  const randomItem = getOneRandomQuestion()
+
+  randomizedList.push(randomItem)
+
+  return randomizedList
+}
+
+function getOneRandomQuestion() {
+  const keys = Object.keys(questionList)
+  const randomKey = keys[keys.length * Math.random() << 0]
+  return {
+    key: randomKey,
+    text: questionList[randomKey]
+  }
+}
+
 function showFail() {
   showAlert('error')
   setTimeout(() => {
@@ -375,7 +403,7 @@ function showSuccess(currentStep) {
 
   showAlert()
   setTimeout(() => {
-    if (currentStep === Object.keys(questionList).length - 1) {
+    if (currentStep === randomQuestionList.length - 1) {
       showStep('success')
       stopCamera()
     } else {
