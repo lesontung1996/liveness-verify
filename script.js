@@ -56,13 +56,12 @@ createFaceLandmarker();
 function loadOpenCV() {
   if (typeof cv !== 'undefined') {
     setTimeout(loadOpenCV, 100)
+    return
   }
   console.log(cv)
-  setTimeout(() => {
-    cv().then((result) => {
-      cv = result
-    })
-  }, 100)  
+  cv().then((result) => {
+    cv = result
+  })
 }
 loadOpenCV()
 
