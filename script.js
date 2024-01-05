@@ -54,12 +54,15 @@ async function createFaceLandmarker() {
 createFaceLandmarker();
 
 function loadOpenCV() {
+  console.log(cv)
   if (!cv) {
     setTimeout(loadOpenCV, 100)
   }
-  cv().then((result) => {
-    cv = result
-  })
+  setTimeout(() => {
+    cv().then((result) => {
+      cv = result
+    })
+  }, 100)  
 }
 loadOpenCV()
 
