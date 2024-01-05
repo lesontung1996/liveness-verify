@@ -54,7 +54,7 @@ async function createFaceLandmarker() {
 createFaceLandmarker();
 
 function loadOpenCV() {
-  if (!cv) {
+  if (typeof cv !== 'undefined') {
     setTimeout(loadOpenCV, 100)
   }
   console.log(cv)
