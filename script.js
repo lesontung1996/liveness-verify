@@ -52,6 +52,14 @@ async function createFaceLandmarker() {
     showStep('welcome')
 };
 createFaceLandmarker();
+
+function loadOpenCV() {
+  cv.then((result) => {
+    cv = result
+  })
+}
+loadOpenCV()
+
 /********************************************************************
 // Demo 2: Continuously grab image from webcam stream and detect it.
 ********************************************************************/
@@ -131,7 +139,11 @@ async function predictWebcam() {
       results = faceLandmarker.detectForVideo(video, startTimeMs);
   }
   if (results.faceLandmarks) {
-    calculateHeadPose(results)
+    try {
+      calculateHeadPose(results)
+    } catch (error) {
+      console.warn(error)
+    }
   }
   // Call this function again to keep predicting when the browser is ready.
   if (webcamRunning === true) {
