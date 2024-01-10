@@ -584,15 +584,13 @@ function checkForRectInFrame(canvas) {
     let vertices = new cv.Mat();
     cv.approxPolyDP(contours.get(i), vertices, 0.04 * cv.arcLength(contours.get(i), true), true);
 
-    if (area > maxArea && vertices.total() <= 10) {
-      // Check if the area of the bounding rectangle is at least 20% of the frame
-      let sizeCondition = area >= src.total() * 0.2;
+    // Check if the area of the bounding rectangle is at least 20% of the frame
+    let sizeCondition = area >= src.total() * 0.1;
 
-      if (sizeCondition) {
-        console.log(area)
-        maxArea = area;
-        maxIndex = i;
-      }
+    if (area > maxArea) {
+      console.log(area)
+      maxArea = area;
+      maxIndex = i;
     }
 
     vertices.delete();
