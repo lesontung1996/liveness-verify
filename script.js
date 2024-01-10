@@ -490,9 +490,9 @@ function enableCameraForDocumentVerify() {
     video.addEventListener("loadeddata", () => {
       showStep('verify', 'verify--document')
       setVideoDimension()
+      initTessaract()
     });
   });
-  initTessaract()
 }
 
 async function initTessaract() {
