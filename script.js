@@ -35,6 +35,28 @@ let roll = 0, pitch = 0, yaw = 0;
 let x, y, z;
 let headPose = headposes.forward
 let headInFrame = false
+
+
+// =====================
+
+const { createWorker, createScheduler } = Tesseract;
+const scheduler = createScheduler();
+let src
+let dst
+
+const documenQuestiontList = [
+  {
+    key: 'front',
+    text: "Capture a pic of your ID's front side in the frame"
+  },
+  {
+    key: 'back',
+    text: "Capture a pic of your ID's back side in the frame"
+  }
+]
+
+// =====================
+
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
 // get everything needed to run.
@@ -446,22 +468,6 @@ function showAlert(type = 'success') {
 
 
 // ==================== Start Document Verification
-
-const { createWorker, createScheduler } = Tesseract;
-const scheduler = createScheduler();
-let src
-let dst
-
-const documenQuestiontList = [
-  {
-    key: 'front',
-    text: "Capture a pic of your ID's front side in the frame"
-  },
-  {
-    key: 'back',
-    text: "Capture a pic of your ID's back side in the frame"
-  }
-]
 
 function enableCameraForDocumentVerify() {
   showStep('loading')
