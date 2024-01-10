@@ -501,12 +501,12 @@ async function initTessaract() {
   scheduler.addWorker(worker);
 }
 
-async function startQuestionDocument(currentStep) {
+function startQuestionDocument(currentStep) {
   let currentFrame = 0
   const questionObject = documenQuestiontList[currentStep]
   instructionElement.textContent = `${questionObject.text}`
 
-  const currentInterval = setInterval(async () => {
+  const currentInterval = setInterval(() => {
     const canvasTemp = document.createElement('canvas');
     canvasTemp.width = canvasElement.width;
     canvasTemp.height = canvasElement.height;
@@ -515,7 +515,7 @@ async function startQuestionDocument(currentStep) {
     const rectInFrame = checkForRectInFrame(canvasTemp)
 
     if (questionObject.key === 'front') {
-      const idIncluded = await checkForIdNumber(canvasTemp)
+      const idIncluded = checkForIdNumber(canvasTemp)
 
       if (idIncluded && rectInFrame) {
         showSuccessDocument(currentStep)
@@ -545,7 +545,7 @@ function showSuccessDocument(currentStep) {
   }, 2000)
 }
 
-async function checkForIdNumber(canvas, idNumber = '031096004213') {
+function checkForIdNumber(canvas, idNumber = '031096004213') {
   // const { data: { text } } = await scheduler.addJob('recognize', canvas);
   return false
 }
