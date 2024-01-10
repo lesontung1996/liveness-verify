@@ -490,7 +490,8 @@ function enableCameraForDocumentVerify() {
     video.addEventListener("loadeddata", () => {
       showStep('verify', 'verify--document')
       setVideoDimension()
-      initTessaract()
+      // initTessaract()
+      startQuestionDocument(0)
     });
   });
 }
@@ -498,7 +499,6 @@ function enableCameraForDocumentVerify() {
 async function initTessaract() {
   const worker = await createWorker();
   scheduler.addWorker(worker);
-  startQuestionDocument(0)
 }
 
 async function startQuestionDocument(currentStep) {
@@ -546,8 +546,8 @@ function showSuccessDocument(currentStep) {
 }
 
 async function checkForIdNumber(canvas, idNumber = '031096004213') {
-  const { data: { text } } = await scheduler.addJob('recognize', canvas);
-  return text.includes(idNumber)
+  // const { data: { text } } = await scheduler.addJob('recognize', canvas);
+  return false
 }
 
 function checkForRectInFrame(canvas) {
