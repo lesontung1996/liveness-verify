@@ -35,28 +35,6 @@ let roll = 0, pitch = 0, yaw = 0;
 let x, y, z;
 let headPose = headposes.forward
 let headInFrame = false
-
-
-// =====================
-
-const { createWorker, createScheduler } = Tesseract;
-const scheduler = createScheduler();
-let src
-let dst
-
-const documenQuestiontList = [
-  {
-    key: 'front',
-    text: "Capture a pic of your ID's front side in the frame"
-  },
-  {
-    key: 'back',
-    text: "Capture a pic of your ID's back side in the frame"
-  }
-]
-
-// =====================
-
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
 // get everything needed to run.
@@ -469,6 +447,22 @@ function showAlert(type = 'success') {
 
 // ==================== Start Document Verification
 
+const { createWorker, createScheduler } = Tesseract;
+const scheduler = createScheduler();
+let src
+let dst
+
+const documenQuestiontList = [
+  {
+    key: 'front',
+    text: "Capture a pic of your ID's front side in the frame"
+  },
+  {
+    key: 'back',
+    text: "Capture a pic of your ID's back side in the frame"
+  }
+]
+
 function enableCameraForDocumentVerify() {
   showStep('loading')
   if (typeof Tesseract === 'undefined' || typeof cv === 'undefined') {
@@ -496,23 +490,23 @@ function enableCameraForDocumentVerify() {
     video.addEventListener("loadeddata", () => {
       showStep('verify', 'verify--document')
       setVideoDimension()
-      // initTessaract()
-      startQuestionDocument(0)
     });
   });
+  initTessaract()
 }
 
 async function initTessaract() {
   const worker = await createWorker();
   scheduler.addWorker(worker);
+  startQuestionDocument(0)
 }
 
-function startQuestionDocument(currentStep) {
+async function startQuestionDocument(currentStep) {
   let currentFrame = 0
   const questionObject = documenQuestiontList[currentStep]
   instructionElement.textContent = `${questionObject.text}`
 
-  const currentInterval = setInterval(() => {
+  const currentInterval = setInterval(async () => {
     const canvasTemp = document.createElement('canvas');
     canvasTemp.width = canvasElement.width;
     canvasTemp.height = canvasElement.height;
@@ -521,7 +515,7 @@ function startQuestionDocument(currentStep) {
     const rectInFrame = checkForRectInFrame(canvasTemp)
 
     if (questionObject.key === 'front') {
-      const idIncluded = checkForIdNumber(canvasTemp)
+      const idIncluded = await checkForIdNumber(canvasTemp)
 
       if (idIncluded && rectInFrame) {
         showSuccessDocument(currentStep)
@@ -551,9 +545,9 @@ function showSuccessDocument(currentStep) {
   }, 2000)
 }
 
-function checkForIdNumber(canvas, idNumber = '031096004213') {
-  // const { data: { text } } = await scheduler.addJob('recognize', canvas);
-  return false
+async function checkForIdNumber(canvas, idNumber = '031096004213') {
+  const { data: { text } } = await scheduler.addJob('recognize', canvas);
+  return text.includes(idNumber)
 }
 
 function checkForRectInFrame(canvas) {
@@ -591,9 +585,9 @@ function checkForRectInFrame(canvas) {
     cv.approxPolyDP(contours.get(i), vertices, 0.04 * cv.arcLength(contours.get(i), true), true);
 
     // Check if the area of the bounding rectangle is at least 20% of the frame
-    let sizeCondition = area >= src.total() * 0.1;
+    let sizeCondition = area >= src.total() * 0.2;
 
-    if (area > maxArea) {
+    if (area > maxArea && sizeCondition) {
       console.log(area)
       maxArea = area;
       maxIndex = i;
@@ -606,20 +600,11 @@ function checkForRectInFrame(canvas) {
     // Get the bounding box of the largest rectangle
     let rect = cv.boundingRect(contours.get(maxIndex));
 
-    // Draw the largest rectangle
-    cv.drawContours(dst, contours, maxIndex, [0, 255, 0, 255], 2);
-
-    // Draw the bounding box
-    cv.rectangle(dst, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 0, 255, 255], 2);
-
     // Log the position (x, y) of the largest rectangle
     console.log('Position (x, y):', rect, rect.x, rect.y, maxIndex, maxArea);
 
     result = rect
   }
-
-  // Display the result
-  cv.imshow('canvas', dst);
 
   // Clean up
   contours.delete();
