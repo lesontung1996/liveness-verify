@@ -504,12 +504,7 @@ function enableCameraForDocumentVerify() {
     setTimeout(enableCameraForDocumentVerify, 100)
     return;
   }
-  if (webcamRunning === true) {
-    webcamRunning = false;
-  }
-  else {
-    webcamRunning = true;
-  }
+  webcamRunning = true;
   // getUsermedia parameters.
   const constraints = {
     audio: false,
@@ -531,11 +526,13 @@ function enableCameraForDocumentVerify() {
 }
 
 async function startQuestionDocument(currentStep) {
+  testStarted = true
   let currentFrame = 0
   const questionObject = documenQuestiontList[currentStep]
   instructionElement.textContent = `${questionObject.text}`
 
-  const currentInterval = setInterval(async () => {
+  const currentInterval = setInterval(async (abc) => {
+    console.log(abc)
     if (webcamRunning === false) {
       clearInterval(currentInterval)
     }
