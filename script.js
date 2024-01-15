@@ -128,7 +128,7 @@ function enableCameraForLiveness(event) {
       mediaStream = stream
       video.srcObject = stream;
       video.addEventListener("loadeddata", () => {
-        showStep('verify', 'verify--liveness')
+        showStep('verify', 'verify--liveness', 'verify--document')
         predictCameraForLivenes()
         setVideoDimension()
       });
@@ -442,7 +442,7 @@ function stopCamera() {
   })
 }
 
-function showStep(name, additionalClass = null) {
+function showStep(name, additionalClass = null, removeClass = null) {
   const steps = document.querySelectorAll('.step')
 
   const target = Number.isInteger(name) ? steps[name] : document.getElementById(`step-${name}`) 
@@ -451,6 +451,10 @@ function showStep(name, additionalClass = null) {
 
   if (additionalClass) {
     target.classList.add(additionalClass)
+  }
+
+  if (removeClass) {
+    target.classList.remove(removeClass)
   }
 }
 
@@ -490,18 +494,20 @@ loadTesseract()
 const documenQuestiontList = [
   {
     key: 'front',
-    text: "Capture a pic of your ID's front side in the frame"
+    text: "Capture a pic of your ID's front side in the frame",
+    title: "ID Front side"
   },
   {
     key: 'back',
-    text: "Capture a pic of your ID's back side in the frame"
+    text: "Capture a pic of your ID's back side in the frame",
+    title: "ID Back side"
   }
 ]
 
-function enableCameraForDocumentVerify() {
+function enableCameraForDocumentVerify(currentStep = 0) {
   showStep('loading')
   if (typeof Tesseract === 'undefined' || typeof cv === 'undefined') {
-    setTimeout(enableCameraForDocumentVerify, 100)
+    setTimeout(() => enableCameraForDocumentVerify(currentStep), 100)
     return;
   }
   webcamRunning = true;
@@ -518,9 +524,9 @@ function enableCameraForDocumentVerify() {
     mediaStream = stream
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
-      showStep('verify', 'verify--document')
+      showStep('verify', 'verify--document', 'verify--liveness')
       setVideoDimension()
-      startQuestionDocument(0)
+      startQuestionDocument(currentStep)
     });
   });
 }
@@ -531,8 +537,7 @@ async function startQuestionDocument(currentStep) {
   const questionObject = documenQuestiontList[currentStep]
   instructionElement.textContent = `${questionObject.text}`
 
-  const currentInterval = setInterval(async (abc) => {
-    console.log(abc)
+  const currentInterval = setInterval(async () => {
     if (webcamRunning === false) {
       clearInterval(currentInterval)
     }
@@ -597,6 +602,7 @@ function handleCompleteCapture() {
   //   combinedContext.drawImage(canvas, 0, canvas.height * index);
   // })
   const container = document.querySelector("#document-result")
+  while (container.firstChild) container.removeChild(container.firstChild)
 
   documenQuestiontList.forEach(({result}, index) => {
     const image = document.createElement("img")
