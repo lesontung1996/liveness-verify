@@ -50,9 +50,20 @@ async function createFaceLandmarker() {
         numFaces: 1,
         selfieMode: true
     });
-    showStep('welcome-document-verify')
+    showStep(1)
 };
 createFaceLandmarker();
+
+function loadOpenCV() {
+  if (typeof cv === 'undefined') {
+    setTimeout(loadOpenCV, 100)
+    return
+  }
+  cv().then((result) => {
+    cv = result
+  })
+}
+loadOpenCV()
 
 window.addEventListener("resize", setVideoDimension);
 
@@ -65,7 +76,7 @@ const canvasElement = document.getElementById("canvas");
 const instructionElement = document.getElementById("instruction");
 const alertSuccessElement = document.getElementById("alert-success");
 const alertErrorElement = document.getElementById("alert-error");
-const canvasCtx = canvasElement.getContext("2d");
+const canvasCtx = canvasElement.getContext("2d", { willReadFrequently: true });
 
 // Check if webcam access is supported.
 function hasGetUserMedia() {
@@ -76,11 +87,18 @@ function hasGetUserMedia() {
 if (hasGetUserMedia()) {
     const startLivenessTestButtons = document.querySelectorAll(".js-start-liveness");
     const startDocumentVerifytButtons = document.querySelectorAll(".js-start-document");
+    const showButtons = document.querySelectorAll("[class*=js-show]");
     startLivenessTestButtons.forEach(startLivenessTestButton => {
       startLivenessTestButton.addEventListener("click", enableCameraForLiveness);
     })
     startDocumentVerifytButtons.forEach(startDocumentVerifytButton => {
       startDocumentVerifytButton.addEventListener("click", enableCameraForDocumentVerify);
+    })
+    showButtons.forEach(button => {
+      const className = [...button.classList].find(className => className.includes('js-show'))
+      if (!className) return
+      const stepName = className.replace('js-show-', '')
+      button.addEventListener("click", () => showStep(stepName));
     })
 } else {
     alert("getUserMedia() is not supported by your browser");
@@ -144,6 +162,7 @@ async function predictCameraForLivenes() {
 }
 
 function setVideoDimension() {
+  if (!video.offsetWidth || !video.offsetHeight) return
   let actualWidth, actualHeight
   const videoWidth = video.offsetWidth;
   const videoHeight = video.offsetHeight;
@@ -159,20 +178,22 @@ function setVideoDimension() {
   canvasElement.width = actualWidth;
   canvasElement.height = actualHeight;
   webcamOverlays.forEach(webcamOverlay => {
-    const webcamOverlayOval = webcamOverlay.querySelector("#overlay-ellipse");
-    const webcamOverlayRect = webcamOverlay.querySelector("#overlay-rect");
+    const webcamOverlayOvals = webcamOverlay.querySelectorAll(".overlay-ellipse");
+    const webcamOverlayRects = webcamOverlay.querySelectorAll(".overlay-rect");
     webcamOverlay.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`)
-    if (webcamOverlayOval) {
-      webcamOverlayOval.setAttribute("rx", ratio > 1 ? actualWidth * 0.35 : actualHeight * 0.8 * 0.35)
-      webcamOverlayOval.setAttribute("ry", ratio > 1 ? actualWidth / 0.8 * 0.35 : actualHeight * 0.35)
-    }
-    if (webcamOverlayRect) {
-      const overlayWidth = ratio > 1 ? actualWidth * 0.9 : actualWidth * 0.8
-      const overlayHeight = actualHeight * 0.65
-      webcamOverlayRect.setAttribute("width", overlayWidth)
-      webcamOverlayRect.setAttribute("height", overlayHeight)
-      webcamOverlayRect.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight * 0.8 / 2})`)
-    }
+
+    webcamOverlayOvals.forEach(item => {
+      item.setAttribute("rx", ratio > 1 ? actualWidth * 0.35 : actualHeight * 0.8 * 0.35)
+      item.setAttribute("ry", ratio > 1 ? actualWidth / 0.8 * 0.35 : actualHeight * 0.35)
+    })
+
+    webcamOverlayRects.forEach(item => {
+      const overlayWidth = ratio > 1 ? actualWidth * 0.9 : actualWidth * 0.7
+      const overlayHeight = ratio > 1 ? actualHeight * 0.55 : actualHeight * 0.65
+      item.setAttribute("width", overlayWidth)
+      item.setAttribute("height", overlayHeight)
+      item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight * 0.8 / 2})`)
+    })
   })
 }
 
@@ -423,7 +444,8 @@ function stopCamera() {
 
 function showStep(name, additionalClass = null) {
   const steps = document.querySelectorAll('.step')
-  const target = document.getElementById(`step-${name}`)
+
+  const target = Number.isInteger(name) ? steps[name] : document.getElementById(`step-${name}`) 
   steps.forEach(step => step.classList.add('hidden'))
   target.classList.remove('hidden')
 
@@ -434,10 +456,13 @@ function showStep(name, additionalClass = null) {
 
 function showAlert(type = 'success') {
   const alertElement = type === 'success' ? alertSuccessElement : alertErrorElement
+  const stepContainer = alertElement.closest('.step')
 
   alertElement.classList.remove('hidden')
+  stepContainer.classList.add(`step--${type}`)
   setTimeout(() => {
     alertElement.classList.add('hidden')
+    stepContainer.classList.remove(`step--${type}`)
   }, 2000)
 }
 
@@ -447,10 +472,20 @@ function showAlert(type = 'success') {
 
 // ==================== Start Document Verification
 
-const { createWorker, createScheduler } = Tesseract;
-const scheduler = createScheduler();
-let src
-let dst
+var createWorker, createScheduler, scheduler
+const scanner = new jscanify()
+
+async function loadTesseract() {
+  if (typeof Tesseract === 'undefined') {
+    setTimeout(loadTesseract, 100)
+  }
+  createWorker = Tesseract.createWorker
+  createScheduler = Tesseract.createScheduler
+  scheduler = createScheduler()
+  const worker = await createWorker();
+  scheduler.addWorker(worker);
+}
+loadTesseract()
 
 const documenQuestiontList = [
   {
@@ -466,8 +501,7 @@ const documenQuestiontList = [
 function enableCameraForDocumentVerify() {
   showStep('loading')
   if (typeof Tesseract === 'undefined' || typeof cv === 'undefined') {
-    alert("Wait! Tesseract not loaded yet.");
-    showStep('welcome-document-verify')
+    setTimeout(enableCameraForDocumentVerify, 100)
     return;
   }
   if (webcamRunning === true) {
@@ -480,7 +514,8 @@ function enableCameraForDocumentVerify() {
   const constraints = {
     audio: false,
     video: {
-      facingMode: 'environment'
+      facingMode: 'environment',
+      width: { ideal: 1280 },
     }
   };
   // Activate the webcam stream.
@@ -490,15 +525,9 @@ function enableCameraForDocumentVerify() {
     video.addEventListener("loadeddata", () => {
       showStep('verify', 'verify--document')
       setVideoDimension()
+      startQuestionDocument(0)
     });
   });
-  initTessaract()
-}
-
-async function initTessaract() {
-  const worker = await createWorker();
-  scheduler.addWorker(worker);
-  startQuestionDocument(0)
 }
 
 async function startQuestionDocument(currentStep) {
@@ -507,28 +536,37 @@ async function startQuestionDocument(currentStep) {
   instructionElement.textContent = `${questionObject.text}`
 
   const currentInterval = setInterval(async () => {
-    const canvasTemp = document.createElement('canvas');
-    canvasTemp.width = canvasElement.width;
-    canvasTemp.height = canvasElement.height;
-    canvasTemp.getContext('2d').drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    if (webcamRunning === false) {
+      clearInterval(currentInterval)
+    }
 
-    const rectInFrame = checkForRectInFrame(canvasTemp)
+    const canvasTemp = document.createElement('canvas');
+    const canvasTempContext = canvasTemp.getContext('2d', { willReadFrequently: true })
+    canvasTemp.width = video.videoWidth;
+    canvasTemp.height = video.videoHeight;
+    canvasTempContext.drawImage(video, 0, 0, canvasTemp.width, canvasTemp.height);
+
+    // const rectInFrame = checkForRectInFrame(canvasTemp)
+    const rectInFrame = scanner.extractPaper(canvasTemp, 1000, 630)
 
     if (questionObject.key === 'front') {
       const idIncluded = await checkForIdNumber(canvasTemp)
 
       if (idIncluded && rectInFrame) {
+        questionObject.result = rectInFrame
         showSuccessDocument(currentStep)
         clearInterval(currentInterval)
       }
     } else if (questionObject.key === 'back') {
       currentFrame = rectInFrame ? currentFrame + 1 : 0
       if (currentFrame >= 2) {
+        questionObject.result = rectInFrame
         showSuccessDocument(currentStep)
         clearInterval(currentInterval)
       }
     }
-  }, 500)
+    canvasTempContext.clearRect(0, 0, canvasTemp.width, canvasTemp.height)
+  }, 1000)
 }
 
 function showSuccessDocument(currentStep) {
@@ -537,7 +575,8 @@ function showSuccessDocument(currentStep) {
   showAlert()
   setTimeout(() => {
     if (currentStep === documenQuestiontList.length - 1) {
-      showStep('success')
+      handleCompleteCapture()
+      showStep('success-document')
       stopCamera()
     } else {
       startQuestionDocument(nextQuestionStep)
@@ -545,71 +584,32 @@ function showSuccessDocument(currentStep) {
   }, 2000)
 }
 
+function handleCompleteCapture() {
+  // Create combinedCanvas to send to backend
+  // const combinedCanvas = document.getElementById('combinedCanvas');
+  // const combinedContext = combinedCanvas.getContext('2d', { willReadFrequently: true });
+
+  // documenQuestiontList.forEach((item, index) => {
+  //   const canvas = item.result
+  //   if (index === 0) {
+  //     combinedCanvas.style.width = canvas.width
+  //     combinedCanvas.style.height = canvas.height * documenQuestiontList.length
+  //     combinedCanvas.width = canvas.width
+  //     combinedCanvas.height = canvas.height * documenQuestiontList.length
+  //   }
+  //   combinedContext.drawImage(canvas, 0, canvas.height * index);
+  // })
+  const container = document.querySelector("#document-result")
+
+  documenQuestiontList.forEach(({result}, index) => {
+    const image = document.createElement("img")
+    image.src = result.toDataURL()
+    image.className = 'block w-10/12 rounded-lg'
+    container.appendChild(image)
+  })
+}
+
 async function checkForIdNumber(canvas, idNumber = '031096004213') {
   const { data: { text } } = await scheduler.addJob('recognize', canvas);
   return text.includes(idNumber)
-}
-
-function checkForRectInFrame(canvas) {
-  let result = false
-  const context = canvas.getContext('2d')
-  // Capture the frame from the canvas
-  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-
-  // Create an OpenCV.js matrix from the captured frame
-  src = cv.matFromImageData(imageData);
-  dst = src.clone();
-
-  // Convert the image to gray scale
-  cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
-
-  // Apply Gaussian blur to reduce noise
-  cv.GaussianBlur(src, src, new cv.Size(5, 5), 0);
-
-  // Use Canny edge detector
-  cv.Canny(src, src, 50, 200, 3, true);
-
-  // Find contours
-  let contours = new cv.MatVector();
-  let hierarchy = new cv.Mat();
-  cv.findContours(src, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-  // Find the largest rectangle
-  let maxArea = 0;
-  let maxIndex = -1;
-  for (let i = 0; i < contours.size(); ++i) {
-    let area = cv.contourArea(contours.get(i));
-
-    // Check if the contour has 4 vertices (rectangular shape)
-    let vertices = new cv.Mat();
-    cv.approxPolyDP(contours.get(i), vertices, 0.04 * cv.arcLength(contours.get(i), true), true);
-
-    // Check if the area of the bounding rectangle is at least 20% of the frame
-    let sizeCondition = area >= src.total() * 0.2;
-
-    if (area > maxArea && sizeCondition) {
-      console.log(area)
-      maxArea = area;
-      maxIndex = i;
-    }
-
-    vertices.delete();
-  }
-
-  if (maxIndex !== -1) {
-    // Get the bounding box of the largest rectangle
-    let rect = cv.boundingRect(contours.get(maxIndex));
-
-    // Log the position (x, y) of the largest rectangle
-    console.log('Position (x, y):', rect, rect.x, rect.y, maxIndex, maxArea);
-
-    result = rect
-  }
-
-  // Clean up
-  contours.delete();
-  hierarchy.delete();
-  src.delete();
-  dst.delete();
-  return result
 }

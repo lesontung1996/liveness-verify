@@ -28,29 +28,23 @@ limitations under the License. */
 
 @use "@material";
 body {
-  font-family: helvetica, arial, sans-serif;
+  font-family: 'Rubik', arial, sans-serif;
 }
 
 video {
   display: block;
 }
 
-section {
-  opacity: 1;
-  transition: opacity 500ms ease-in-out;
+input {
+  border-radius: 0;
 }
 
-header,
-footer {
-  clear: both;
+select {
+  background: none;
 }
 
-.removed {
+.hidden {
   display: none;
-}
-
-.invisible {
-  opacity: 0.2;
 }
 
 #video-wrapper {
@@ -95,5 +89,30 @@ footer {
 .verify--document {
   #svg-document {
     display: block;
+  }
+
+  #alert-success {
+    top: 60%;
+  }
+}
+
+.overlay-border {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 5;
+  stroke: #fff;
+}
+
+.step--success {
+  .overlay-border {
+    stroke-dasharray: 0;
+    stroke: #00DB6B;
+  }
+}
+
+.step--error {
+  .overlay-border {
+    stroke-dasharray: 0;
+    stroke: #DA1E28;
   }
 }
