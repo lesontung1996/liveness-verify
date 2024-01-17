@@ -87,12 +87,16 @@ function hasGetUserMedia() {
 if (hasGetUserMedia()) {
     const startLivenessTestButtons = document.querySelectorAll(".js-start-liveness");
     const startDocumentVerifytButtons = document.querySelectorAll(".js-start-document");
+    const continueVerifyDocumenttButtons = document.querySelectorAll(".js-continue-document");
     const showButtons = document.querySelectorAll("[class*=js-show]");
     startLivenessTestButtons.forEach(startLivenessTestButton => {
       startLivenessTestButton.addEventListener("click", enableCameraForLiveness);
     })
     startDocumentVerifytButtons.forEach(startDocumentVerifytButton => {
       startDocumentVerifytButton.addEventListener("click", enableCameraForDocumentVerify);
+    })
+    continueVerifyDocumenttButtons.forEach(continueVerifyDocumenttButton => {
+      continueVerifyDocumenttButton.addEventListener("click", continueVerifyDocument);
     })
     showButtons.forEach(button => {
       const className = [...button.classList].find(className => className.includes('js-show'))
@@ -504,10 +508,12 @@ const documenQuestiontList = [
   }
 ]
 
-function enableCameraForDocumentVerify(currentStep = 0) {
+let currentDocumentStep = 0
+
+function enableCameraForDocumentVerify() {
   showStep('loading')
   if (typeof Tesseract === 'undefined' || typeof cv === 'undefined') {
-    setTimeout(() => enableCameraForDocumentVerify(currentStep), 100)
+    setTimeout(enableCameraForDocumentVerify, 100)
     return;
   }
   webcamRunning = true;
@@ -526,15 +532,15 @@ function enableCameraForDocumentVerify(currentStep = 0) {
     video.addEventListener("loadeddata", () => {
       showStep('verify', 'verify--document', 'verify--liveness')
       setVideoDimension()
-      startQuestionDocument(currentStep)
+      startQuestionDocument(currentDocumentStep)
     });
   });
 }
 
-async function startQuestionDocument(currentStep) {
+async function startQuestionDocument() {
   testStarted = true
   let currentFrame = 0
-  const questionObject = documenQuestiontList[currentStep]
+  const questionObject = documenQuestiontList[currentDocumentStep]
   instructionElement.textContent = `${questionObject.text}`
 
   const currentInterval = setInterval(async () => {
@@ -556,14 +562,14 @@ async function startQuestionDocument(currentStep) {
 
       if (idIncluded && rectInFrame) {
         questionObject.result = rectInFrame
-        showSuccessDocument(currentStep)
+        showSuccessDocument()
         clearInterval(currentInterval)
       }
     } else if (questionObject.key === 'back') {
       currentFrame = rectInFrame ? currentFrame + 1 : 0
       if (currentFrame >= 2) {
         questionObject.result = rectInFrame
-        showSuccessDocument(currentStep)
+        showSuccessDocument()
         clearInterval(currentInterval)
       }
     }
@@ -571,18 +577,12 @@ async function startQuestionDocument(currentStep) {
   }, 1000)
 }
 
-function showSuccessDocument(currentStep) {
-  const nextQuestionStep = currentStep + 1
-
+function showSuccessDocument() {
   showAlert()
   setTimeout(() => {
-    if (currentStep === documenQuestiontList.length - 1) {
-      handleCompleteCapture()
-      showStep('success-document')
-      stopCamera()
-    } else {
-      startQuestionDocument(nextQuestionStep)
-    }
+    handleCompleteCapture()
+    showStep('success-document')
+    stopCamera()
   }, 2000)
 }
 
@@ -601,15 +601,25 @@ function handleCompleteCapture() {
   //   }
   //   combinedContext.drawImage(canvas, 0, canvas.height * index);
   // })
+  const questionObject = documenQuestiontList[currentDocumentStep]
   const container = document.querySelector("#document-result")
+  const title = container.parentNode.querySelector("h1")
   while (container.firstChild) container.removeChild(container.firstChild)
 
-  documenQuestiontList.forEach(({result}, index) => {
-    const image = document.createElement("img")
-    image.src = result.toDataURL()
-    image.className = 'block w-10/12 rounded-lg'
-    container.appendChild(image)
-  })
+  title.textContent = questionObject.title
+  const image = document.createElement("img")
+  image.src = questionObject.result.toDataURL()
+  image.className = 'block w-10/12 rounded-lg'
+  container.appendChild(image)
+}
+
+function continueVerifyDocument() {
+  if (currentDocumentStep === documenQuestiontList.length - 1) {
+    showStep('welcome-liveness')
+  } else {
+    currentDocumentStep = currentDocumentStep + 1
+    enableCameraForDocumentVerify()
+  }
 }
 
 async function checkForIdNumber(canvas, idNumber = '031096004213') {
