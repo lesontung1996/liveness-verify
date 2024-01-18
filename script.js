@@ -101,6 +101,10 @@ if (hasGetUserMedia()) {
     const startAddressVerifytButtons = document.querySelectorAll(".js-start-address");
     const continueVerifyDocumenttButtons = document.querySelectorAll(".js-continue-document");
     const showButtons = document.querySelectorAll("[class*=js-show]");
+    const captureButtons = document.querySelectorAll('.js-capture-camera')
+    captureButtons.forEach(button => {
+      button.addEventListener('click', captureFrame)
+    })
     startLivenessTestButtons.forEach(button => {
       button.addEventListener("click", enableCameraForLiveness);
     })
@@ -204,15 +208,9 @@ function setVideoDimension() {
     webcamOverlayRects.forEach(item => {
       const overlayWidth = ratio > 1 ? actualWidth * 0.9 : actualWidth * 0.7
       const overlayHeight = ratio > 1 ? actualHeight * 0.5 : actualHeight * 0.65
-      let transform
-      if (verifyMode === 'document') {
-        transform = `translate(-${overlayWidth / 2},-${overlayHeight * 0.8 / 2})`
-      } else if (verifyMode === 'address') {
-        transform = `translate(-${overlayWidth / 2},-${overlayHeight / 2})`
-      }
       item.setAttribute("width", overlayWidth)
       item.setAttribute("height", overlayHeight)
-      item.setAttribute("transform", transform)
+      item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight / 2})`)
     })
   })
 }
@@ -475,7 +473,19 @@ function showStep(name, additionalClass = null) {
     toDeletes.forEach(className => target.classList.remove(className))
     target.classList.add(`verify--${verifyMode}`)
     setVideoDimension()
+    setVideoInstruction()
   }
+}
+
+function setVideoInstruction() {
+  let instruction
+  if (verifyMode === 'document') {
+    const questionObject = documenQuestiontList[currentDocumentStep]
+    instruction = questionObject.text
+  } else if (verifyMode === 'address') {
+    instruction = 'Capture proof of address'
+  }
+  instructionElement.textContent = instruction
 }
 
 function showAlert(type = 'success') {
@@ -548,56 +558,11 @@ function enableCameraForDocumentVerify() {
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
       showStep('verify')
-      startQuestionDocument(currentDocumentStep)
     });
   });
 }
 
-async function startQuestionDocument() {
-  testStarted = true
-  let currentFrame = 0
-  const questionObject = documenQuestiontList[currentDocumentStep]
-  instructionElement.textContent = `${questionObject.text}`
-
-  const currentInterval = setInterval(async () => {
-    if (webcamRunning === false) {
-      clearInterval(currentInterval)
-    }
-
-    const canvasTemp = getCanvasFromVideo()
-
-    // const rectInFrame = checkForRectInFrame(canvasTemp)
-    const rectInFrame = scanner.extractPaper(canvasTemp, 1000, 630)
-
-    if (questionObject.key === 'front') {
-      const idIncluded = await checkForIdNumber(canvasTemp)
-
-      if (idIncluded && rectInFrame) {
-        questionObject.result = rectInFrame
-        showSuccessDocument()
-        clearInterval(currentInterval)
-      }
-    } else if (questionObject.key === 'back') {
-      currentFrame = rectInFrame ? currentFrame + 1 : 0
-      if (currentFrame >= 2) {
-        questionObject.result = rectInFrame
-        showSuccessDocument()
-        clearInterval(currentInterval)
-      }
-    }
-  }, 1000)
-}
-
-function showSuccessDocument() {
-  showAlert()
-  setTimeout(() => {
-    handleCompleteCapture()
-    showStep('success-document')
-    stopCamera()
-  }, 2000)
-}
-
-function handleCompleteCapture() {
+function updateSuccessDocumentPage(canvas) {
   // Create combinedCanvas to send to backend
   // const combinedCanvas = document.getElementById('combinedCanvas');
   // const combinedContext = combinedCanvas.getContext('2d', { willReadFrequently: true });
@@ -619,7 +584,7 @@ function handleCompleteCapture() {
 
   title.textContent = questionObject.title
   const image = document.createElement("img")
-  image.src = questionObject.result.toDataURL()
+  image.src = canvas.toDataURL()
   image.className = 'block w-10/12 rounded-lg'
   container.appendChild(image)
 }
@@ -631,11 +596,6 @@ function continueVerifyDocument() {
     currentDocumentStep = currentDocumentStep + 1
     enableCameraForDocumentVerify()
   }
-}
-
-async function checkForIdNumber(canvas, idNumber = '031096004213') {
-  const { data: { text } } = await scheduler.addJob('recognize', canvas);
-  return text.includes(idNumber)
 }
 
 // =======================
@@ -659,22 +619,22 @@ function enableCameraForAddressVerify() {
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
       showStep('verify')
-      listenCaptureFrame()
     });
   });
 }
 
-function listenCaptureFrame() {
-  const captureButtons = document.querySelectorAll('.js-capture-camera')
-  captureButtons.forEach(button => {
-    button.addEventListener('click', captureFrame)
-  })
-}
-
 function captureFrame() {
   const canvas = getCanvasFromVideo()
-  updateSuccessAddressPage(canvas)
-  showStep('success-address')
+
+  if (verifyMode === 'document') {
+    const extractedCanvas = scanner.extractPaper(canvas, 1000, 630)
+    updateSuccessDocumentPage(extractedCanvas)
+    showStep('success-document')
+  } else if (verifyMode === 'address') {
+    updateSuccessAddressPage(canvas)
+    showStep('success-address')
+  }
+
   stopCamera()
 }
 

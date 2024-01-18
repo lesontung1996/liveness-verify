@@ -32,34 +32,42 @@
       cv.cvtColor(img, imgGray, cv.COLOR_RGBA2GRAY);
 
       const imgBlur = new cv.Mat();
-      cv.GaussianBlur( imgGray, imgBlur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT );
+      cv.GaussianBlur(
+        imgGray,
+        imgBlur,
+        new cv.Size(5, 5),
+        0,
+        0,
+        cv.BORDER_DEFAULT
+      );
 
       const imgThresh = new cv.Mat();
-      cv.threshold( imgBlur, imgThresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU );
+      cv.threshold(
+        imgBlur,
+        imgThresh,
+        0,
+        255,
+        cv.THRESH_BINARY + cv.THRESH_OTSU
+      );
 
       let contours = new cv.MatVector();
       let hierarchy = new cv.Mat();
 
-      cv.findContours( imgThresh, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE );
+      cv.findContours(
+        imgThresh,
+        contours,
+        hierarchy,
+        cv.RETR_CCOMP,
+        cv.CHAIN_APPROX_SIMPLE
+      );
       let maxArea = 0;
       let maxContourIndex = -1;
       for (let i = 0; i < contours.size(); ++i) {
         let contourArea = cv.contourArea(contours.get(i));
-        // Check if the contourArea of the bounding rectangle is at least 20% of the frame
-        let sizeCondition = contourArea >= imgThresh.total() * 0.2 && contourArea <= imgThresh.total() * 0.7;
-
-        // Check if the contour has 4 vertices (rectangular shape)
-        let vertices = new cv.Mat();
-        cv.approxPolyDP(contours.get(i), vertices, 0.04 * cv.arcLength(contours.get(i), true), true);
-
-        if (contourArea > maxArea && sizeCondition && vertices.total() === 4) {
+        if (contourArea > maxArea) {
           maxArea = contourArea;
           maxContourIndex = i;
         }
-      }
-
-      if (maxContourIndex === -1) {
-        return null
       }
 
       const maxContour = contours.get(maxContourIndex);
@@ -82,7 +90,7 @@
       options = options || {};
       options.color = options.color || "orange";
       options.thickness = options.thickness || 10;
-      let canvas = document.createElement("canvas");
+      const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       const img = cv.imread(image);
 
@@ -112,8 +120,6 @@
           ctx.lineTo(...Object.values(topLeftCorner));
           ctx.stroke();
         }
-      } else {
-        canvas = null
       }
 
       img.delete();
@@ -135,23 +141,12 @@
 
       const maxContour = this.findPaperContour(img);
 
-      if (!maxContour) {
-        img.delete()
-        return null
-      }
-
       const {
         topLeftCorner,
         topRightCorner,
         bottomLeftCorner,
         bottomRightCorner,
       } = cornerPoints || this.getCornerPoints(maxContour, img);
-
-      if (!topLeftCorner || !topRightCorner || !bottomLeftCorner || !bottomRightCorner) {
-        img.delete()
-        return null
-      }
-
       let warpedDst = new cv.Mat();
 
       let dsize = new cv.Size(resultWidth, resultHeight);
