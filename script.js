@@ -35,6 +35,8 @@ let roll = 0, pitch = 0, yaw = 0;
 let x, y, z;
 let headPose = headposes.forward
 let headInFrame = false
+let verifyMode
+
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
 // get everything needed to run.
@@ -65,6 +67,15 @@ function loadOpenCV() {
 }
 loadOpenCV()
 
+function loadTailwind() {
+  if (typeof tailwind === 'undefined') {
+    setTimeout(loadTailwind, 100)
+    return
+  }
+  document.body.classList.remove('hidden')
+}
+loadTailwind()
+
 window.addEventListener("resize", setVideoDimension);
 
 /********************************************************************
@@ -87,16 +98,20 @@ function hasGetUserMedia() {
 if (hasGetUserMedia()) {
     const startLivenessTestButtons = document.querySelectorAll(".js-start-liveness");
     const startDocumentVerifytButtons = document.querySelectorAll(".js-start-document");
+    const startAddressVerifytButtons = document.querySelectorAll(".js-start-address");
     const continueVerifyDocumenttButtons = document.querySelectorAll(".js-continue-document");
     const showButtons = document.querySelectorAll("[class*=js-show]");
-    startLivenessTestButtons.forEach(startLivenessTestButton => {
-      startLivenessTestButton.addEventListener("click", enableCameraForLiveness);
+    startLivenessTestButtons.forEach(button => {
+      button.addEventListener("click", enableCameraForLiveness);
     })
-    startDocumentVerifytButtons.forEach(startDocumentVerifytButton => {
-      startDocumentVerifytButton.addEventListener("click", enableCameraForDocumentVerify);
+    startDocumentVerifytButtons.forEach(button => {
+      button.addEventListener("click", enableCameraForDocumentVerify);
     })
-    continueVerifyDocumenttButtons.forEach(continueVerifyDocumenttButton => {
-      continueVerifyDocumenttButton.addEventListener("click", continueVerifyDocument);
+    continueVerifyDocumenttButtons.forEach(button => {
+      button.addEventListener("click", continueVerifyDocument);
+    })
+    startAddressVerifytButtons.forEach(button => {
+      button.addEventListener("click", enableCameraForAddressVerify);
     })
     showButtons.forEach(button => {
       const className = [...button.classList].find(className => className.includes('js-show'))
@@ -114,12 +129,8 @@ function enableCameraForLiveness(event) {
       alert("Wait! faceLandmarker and OpenCV not loaded yet.");
       return;
     }
-    if (webcamRunning === true) {
-      webcamRunning = false;
-    }
-    else {
-      webcamRunning = true;
-    }
+    verifyMode = 'liveness'
+    webcamRunning = true;
     // getUsermedia parameters.
     const constraints = {
       audio: false,
@@ -132,9 +143,8 @@ function enableCameraForLiveness(event) {
       mediaStream = stream
       video.srcObject = stream;
       video.addEventListener("loadeddata", () => {
-        showStep('verify', 'verify--liveness', 'verify--document')
+        showStep('verify')
         predictCameraForLivenes()
-        setVideoDimension()
       });
       startLivenessTest()
     });
@@ -193,10 +203,16 @@ function setVideoDimension() {
 
     webcamOverlayRects.forEach(item => {
       const overlayWidth = ratio > 1 ? actualWidth * 0.9 : actualWidth * 0.7
-      const overlayHeight = ratio > 1 ? actualHeight * 0.55 : actualHeight * 0.65
+      const overlayHeight = ratio > 1 ? actualHeight * 0.5 : actualHeight * 0.65
+      let transform
+      if (verifyMode === 'document') {
+        transform = `translate(-${overlayWidth / 2},-${overlayHeight * 0.8 / 2})`
+      } else if (verifyMode === 'address') {
+        transform = `translate(-${overlayWidth / 2},-${overlayHeight / 2})`
+      }
       item.setAttribute("width", overlayWidth)
       item.setAttribute("height", overlayHeight)
-      item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight * 0.8 / 2})`)
+      item.setAttribute("transform", transform)
     })
   })
 }
@@ -446,19 +462,19 @@ function stopCamera() {
   })
 }
 
-function showStep(name, additionalClass = null, removeClass = null) {
+function showStep(name, additionalClass = null) {
   const steps = document.querySelectorAll('.step')
 
   const target = Number.isInteger(name) ? steps[name] : document.getElementById(`step-${name}`) 
+  if (!target) return
   steps.forEach(step => step.classList.add('hidden'))
   target.classList.remove('hidden')
 
-  if (additionalClass) {
-    target.classList.add(additionalClass)
-  }
-
-  if (removeClass) {
-    target.classList.remove(removeClass)
+  if (name === 'verify') {
+    const toDeletes = [...target.classList].filter(className => className.includes('verify--'))
+    toDeletes.forEach(className => target.classList.remove(className))
+    target.classList.add(`verify--${verifyMode}`)
+    setVideoDimension()
   }
 }
 
@@ -516,6 +532,7 @@ function enableCameraForDocumentVerify() {
     setTimeout(enableCameraForDocumentVerify, 100)
     return;
   }
+  verifyMode = 'document'
   webcamRunning = true;
   // getUsermedia parameters.
   const constraints = {
@@ -530,8 +547,7 @@ function enableCameraForDocumentVerify() {
     mediaStream = stream
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
-      showStep('verify', 'verify--document', 'verify--liveness')
-      setVideoDimension()
+      showStep('verify')
       startQuestionDocument(currentDocumentStep)
     });
   });
@@ -548,11 +564,7 @@ async function startQuestionDocument() {
       clearInterval(currentInterval)
     }
 
-    const canvasTemp = document.createElement('canvas');
-    const canvasTempContext = canvasTemp.getContext('2d', { willReadFrequently: true })
-    canvasTemp.width = video.videoWidth;
-    canvasTemp.height = video.videoHeight;
-    canvasTempContext.drawImage(video, 0, 0, canvasTemp.width, canvasTemp.height);
+    const canvasTemp = getCanvasFromVideo()
 
     // const rectInFrame = checkForRectInFrame(canvasTemp)
     const rectInFrame = scanner.extractPaper(canvasTemp, 1000, 630)
@@ -573,7 +585,6 @@ async function startQuestionDocument() {
         clearInterval(currentInterval)
       }
     }
-    canvasTempContext.clearRect(0, 0, canvasTemp.width, canvasTemp.height)
   }, 1000)
 }
 
@@ -625,4 +636,67 @@ function continueVerifyDocument() {
 async function checkForIdNumber(canvas, idNumber = '031096004213') {
   const { data: { text } } = await scheduler.addJob('recognize', canvas);
   return text.includes(idNumber)
+}
+
+// =======================
+
+function enableCameraForAddressVerify() {
+  showStep('loading')
+  verifyMode = 'address'
+  webcamRunning = true
+  testStarted = true
+  // getUsermedia parameters.
+  const constraints = {
+    audio: false,
+    video: {
+      facingMode: 'environment',
+      width: { ideal: 1280 },
+    }
+  };
+  // Activate the webcam stream.
+  navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    mediaStream = stream
+    video.srcObject = stream;
+    video.addEventListener("loadeddata", () => {
+      showStep('verify')
+      listenCaptureFrame()
+    });
+  });
+}
+
+function listenCaptureFrame() {
+  const captureButtons = document.querySelectorAll('.js-capture-camera')
+  captureButtons.forEach(button => {
+    button.addEventListener('click', captureFrame)
+  })
+}
+
+function captureFrame() {
+  const canvas = getCanvasFromVideo()
+  updateSuccessAddressPage(canvas)
+  showStep('success-address')
+  stopCamera()
+}
+
+function updateSuccessAddressPage(canvas) {
+  if (!canvas) return
+  const container = document.querySelector("#address-result")
+  while (container.firstChild) container.removeChild(container.firstChild)
+
+  const image = document.createElement("img")
+  image.src = canvas.toDataURL()
+  image.className = 'block rounded-lg'
+  container.appendChild(image)
+}
+
+function getCanvasFromVideo(videoEl = undefined) {
+  if (!videoEl) {
+    videoEl = video
+  }
+  const canvas = document.createElement('canvas');
+  const canvasCtx = canvas.getContext('2d', { willReadFrequently: true })
+  canvas.width = videoEl.videoWidth;
+  canvas.height = videoEl.videoHeight;
+  canvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  return canvas
 }
