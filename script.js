@@ -484,6 +484,8 @@ function setVideoInstruction() {
     instruction = questionObject.text
   } else if (verifyMode === 'address') {
     instruction = 'Capture proof of address'
+  } else {
+    return
   }
   instructionElement.textContent = instruction
 }
@@ -549,7 +551,7 @@ function enableCameraForDocumentVerify() {
     audio: false,
     video: {
       facingMode: 'environment',
-      width: { ideal: 1280 },
+      height: { min: 1200 },
     }
   };
   // Activate the webcam stream.
