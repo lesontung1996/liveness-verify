@@ -1,6 +1,9 @@
 
 import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+import { countryList } from "./statics.js";
+
 const { FaceLandmarker, FilesetResolver } = vision;
+
 
 const questionList = {
   blink: "Blink your eyes",
@@ -36,6 +39,30 @@ let x, y, z;
 let headPose = headposes.forward
 let headInFrame = false
 let verifyMode
+const store = {
+  applicantName: '',
+  applicantId: '',
+  clientId: 'ad969161-95a0-4df3-a6e7-83e31fcb250e',
+  formDocument: {
+    id: '',
+    type: '',
+    country: '',
+  },
+  formAddress: {
+    type: '',
+    country: '',
+  },
+  resultDocument: {
+    canvasFront: null,
+    canvasBack: null,
+  },
+  resultLiveness: {
+    canvasFace: null
+  },
+  resultAddress: {
+    canvasAddress: null
+  },
+}
 
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
@@ -76,6 +103,20 @@ function loadTailwind() {
 }
 loadTailwind()
 
+function renderContry() {
+  const selectEls = document.querySelectorAll('.js-select-country')
+  selectEls.forEach(selectElement => {
+      // Create and append new options
+      countryList.forEach(country => {
+        const optionElement = document.createElement('option');
+        optionElement.value = country.value;
+        optionElement.text = country.text;
+        selectElement.appendChild(optionElement);
+      });
+  })
+}
+renderContry()
+
 window.addEventListener("resize", setVideoDimension);
 
 /********************************************************************
@@ -100,7 +141,9 @@ if (hasGetUserMedia()) {
     const startDocumentVerifytButtons = document.querySelectorAll(".js-start-document");
     const startAddressVerifytButtons = document.querySelectorAll(".js-start-address");
     const continueVerifyDocumenttButtons = document.querySelectorAll(".js-continue-document");
+    const continueVerifyAddressButtons = document.querySelectorAll(".js-continue-address");
     const showButtons = document.querySelectorAll("[class*=js-show]");
+    const forms = document.querySelectorAll("form[id*=form]");
     const captureButtons = document.querySelectorAll('.js-capture-camera')
     captureButtons.forEach(button => {
       button.addEventListener('click', captureFrame)
@@ -114,6 +157,9 @@ if (hasGetUserMedia()) {
     continueVerifyDocumenttButtons.forEach(button => {
       button.addEventListener("click", continueVerifyDocument);
     })
+    continueVerifyAddressButtons.forEach(button => {
+      button.addEventListener("click", apiAddress);
+    })
     startAddressVerifytButtons.forEach(button => {
       button.addEventListener("click", enableCameraForAddressVerify);
     })
@@ -121,7 +167,65 @@ if (hasGetUserMedia()) {
       const className = [...button.classList].find(className => className.includes('js-show'))
       if (!className) return
       const stepName = className.replace('js-show-', '')
+
       button.addEventListener("click", () => showStep(stepName));
+    })
+    forms.forEach(form => {
+      form.addEventListener('submit', async (e) => {
+        if (form.id === 'form-password') {
+          e.preventDefault()
+          const input = form.querySelector('input')
+          if (input.value !== 'passport') {
+            alert('Wrong password')
+          } else {
+            showStep('applicant')
+          }
+        }
+
+        if (form.id === 'form-applicant') {
+          e.preventDefault()
+          const input = form.querySelector('input')
+          const myHeaders = new Headers();
+          myHeaders.append("x-client-id", store.clientId);
+          myHeaders.append("Content-Type", "application/json");
+
+          const raw = JSON.stringify({
+            full_name: input.value
+          });
+          const response = await fetch("http://develop.kyc.passport.stuffio.com/kyc/applicants", {
+            method: 'POST',
+            headers: myHeaders,
+            body: raw,
+            redirect: 'follow'
+          });
+          const responseJson = await response.json();
+          store.applicantName = responseJson.full_name
+          store.applicantId = responseJson.applicant_id
+          showStep('welcome')
+        }
+
+        if (form.getAttribute('id') === 'form-identity') {
+          e.preventDefault()
+          const inputId = form.querySelector('input[name=id]')
+          const selectDocumentType = form.querySelector('select[name=document-type]')
+          const selectCountry = form.querySelector('select[name=country]')
+          
+          store.formDocument.id = inputId.value
+          store.formDocument.type = selectDocumentType.value
+          store.formDocument.country = selectCountry.value
+          showStep('welcome-document-verify')
+        }
+
+        if (form.getAttribute('id') === 'form-address') {
+          e.preventDefault()
+          const selectDocumentType = form.querySelector('select[name=document-type]')
+          const selectCountry = form.querySelector('select[name=country]')
+          
+          store.formAddress.type = selectDocumentType.value
+          store.formAddress.country = selectCountry.value
+          showStep('proof-address-2')
+        }
+      })
     })
 } else {
     alert("getUserMedia() is not supported by your browser");
@@ -362,12 +466,19 @@ function startLivenessTest () {
 
 function startTestHeadInFrame() {
   let currentFrames = 0
+  let capturedFace = false
+
   const targetFrames = 10
   instructionElement.textContent = `Keep your face within the oval to start recording`
 
   const currentInterval = setInterval(() => {
     if (headInFrame === true) {
       currentFrames = currentFrames + 1
+      if (headPose === headposes.forward && capturedFace === false) {
+        const canvas = getCanvasFromVideo()
+        store.resultLiveness.canvasFace = canvas
+        capturedFace = true
+      }
       if (currentFrames >= targetFrames) {
         showAlert()
         setTimeout(() => startQuestion(0), 2000)
@@ -443,6 +554,7 @@ function showSuccess(currentStep) {
   showAlert()
   setTimeout(() => {
     if (currentStep === randomQuestionList.length - 1) {
+      apiLiveness()
       showStep('success')
       stopCamera()
     } else {
@@ -465,6 +577,7 @@ function showStep(name, additionalClass = null) {
 
   const target = Number.isInteger(name) ? steps[name] : document.getElementById(`step-${name}`) 
   if (!target) return
+
   steps.forEach(step => step.classList.add('hidden'))
   target.classList.remove('hidden')
 
@@ -502,26 +615,35 @@ function showAlert(type = 'success') {
   }, 2000)
 }
 
+function apiLiveness() {
+  const canvas = store.resultLiveness.canvasFace
+  const file = dataURLtoFile(canvas.toDataURL(), `face.png`)
+  const myHeaders = new Headers();
+  myHeaders.append("X-Client-Id", store.clientId);
+
+  const formdata = new FormData();
+  formdata.append("face", file, "face.png");
+
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: formdata,
+    redirect: 'follow'
+  };
+
+  fetch(`http://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}/face`, requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
+}
+
 
 // ==================== End Liveness Verification
 
 
 // ==================== Start Document Verification
 
-var createWorker, createScheduler, scheduler
 const scanner = new jscanify()
-
-async function loadTesseract() {
-  if (typeof Tesseract === 'undefined') {
-    setTimeout(loadTesseract, 100)
-  }
-  createWorker = Tesseract.createWorker
-  createScheduler = Tesseract.createScheduler
-  scheduler = createScheduler()
-  const worker = await createWorker();
-  scheduler.addWorker(worker);
-}
-loadTesseract()
 
 const documenQuestiontList = [
   {
@@ -540,7 +662,7 @@ let currentDocumentStep = 0
 
 function enableCameraForDocumentVerify() {
   showStep('loading')
-  if (typeof Tesseract === 'undefined' || typeof cv === 'undefined') {
+  if (typeof cv === 'undefined') {
     setTimeout(enableCameraForDocumentVerify, 100)
     return;
   }
@@ -551,7 +673,10 @@ function enableCameraForDocumentVerify() {
     audio: false,
     video: {
       facingMode: 'environment',
-      height: { min: 1200 },
+      height: {
+        min: 1200,
+        min: 720,
+      },
     }
   };
   // Activate the webcam stream.
@@ -565,24 +690,16 @@ function enableCameraForDocumentVerify() {
 }
 
 function updateSuccessDocumentPage(canvas) {
-  // Create combinedCanvas to send to backend
-  // const combinedCanvas = document.getElementById('combinedCanvas');
-  // const combinedContext = combinedCanvas.getContext('2d', { willReadFrequently: true });
-
-  // documenQuestiontList.forEach((item, index) => {
-  //   const canvas = item.result
-  //   if (index === 0) {
-  //     combinedCanvas.style.width = canvas.width
-  //     combinedCanvas.style.height = canvas.height * documenQuestiontList.length
-  //     combinedCanvas.width = canvas.width
-  //     combinedCanvas.height = canvas.height * documenQuestiontList.length
-  //   }
-  //   combinedContext.drawImage(canvas, 0, canvas.height * index);
-  // })
   const questionObject = documenQuestiontList[currentDocumentStep]
   const container = document.querySelector("#document-result")
   const title = container.parentNode.querySelector("h1")
   while (container.firstChild) container.removeChild(container.firstChild)
+
+  if (currentDocumentStep === 0) {
+    store.resultDocument.canvasFront = canvas
+  } else if (currentDocumentStep === 1) {
+    store.resultDocument.canvasBack = canvas
+  }
 
   title.textContent = questionObject.title
   const image = document.createElement("img")
@@ -591,13 +708,55 @@ function updateSuccessDocumentPage(canvas) {
   container.appendChild(image)
 }
 
+function combineCanvasDocument() {
+  const combinedCanvas = document.createElement('canvas');
+  const combinedContext = combinedCanvas.getContext('2d');
+
+  combinedCanvas.style.width = store.resultDocument.canvasFront.width
+  combinedCanvas.style.height = store.resultDocument.canvasFront.height * 2
+  combinedCanvas.width = store.resultDocument.canvasFront.width
+  combinedCanvas.height = store.resultDocument.canvasFront.height * 2
+
+  combinedContext.drawImage(store.resultDocument.canvasFront, 0, 0);
+  combinedContext.drawImage(store.resultDocument.canvasBack, 0, combinedCanvas.height);
+
+  return combinedCanvas
+}
+
 function continueVerifyDocument() {
   if (currentDocumentStep === documenQuestiontList.length - 1) {
+    apiDocument()
     showStep('welcome-liveness')
   } else {
     currentDocumentStep = currentDocumentStep + 1
     enableCameraForDocumentVerify()
   }
+}
+
+function apiDocument() {
+  const combinedCanvas = combineCanvasDocument()
+  const file = dataURLtoFile(combinedCanvas.toDataURL(), `document.png`)
+  const myHeaders = new Headers();
+  myHeaders.append("X-Client-Id", store.clientId);
+
+  const formdata = new FormData();
+  formdata.append("document_file", file, "document.png");
+  formdata.append("doc_category", "proof_of_identity");
+  formdata.append("doc_type", store.formDocument.type);
+  formdata.append("manual_input", `full_name: ${store.applicantName}`);
+  formdata.append("issuing_country", store.formDocument.country);
+
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: formdata,
+    redirect: 'follow'
+  };
+
+  fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 }
 
 // =======================
@@ -645,10 +804,36 @@ function updateSuccessAddressPage(canvas) {
   const container = document.querySelector("#address-result")
   while (container.firstChild) container.removeChild(container.firstChild)
 
+  store.resultAddress.canvasAddress = canvas
   const image = document.createElement("img")
   image.src = canvas.toDataURL()
   image.className = 'block rounded-lg'
   container.appendChild(image)
+}
+
+function apiAddress() {
+  const canvas = store.resultAddress.canvasAddress
+  const file = dataURLtoFile(canvas.toDataURL(), `address.png`)
+  const myHeaders = new Headers();
+  myHeaders.append("X-Client-Id", store.clientId);
+
+  const formdata = new FormData();
+  formdata.append("document_file", file, "address.png");
+  formdata.append("doc_category", "proof_of_address");
+  formdata.append("doc_type", store.formAddress.type);
+  formdata.append("issuing_country", store.formAddress.country);
+
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: formdata,
+    redirect: 'follow'
+  };
+
+  fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
+    .then(response => response.text())
+    .then(result => console.log(result))
+    .catch(error => console.log('error', error));
 }
 
 function getCanvasFromVideo(videoEl = undefined) {
@@ -661,4 +846,16 @@ function getCanvasFromVideo(videoEl = undefined) {
   canvas.height = videoEl.videoHeight;
   canvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
   return canvas
+}
+
+function dataURLtoFile(dataurl, filename) {
+  var arr = dataurl.split(','),
+      mime = arr[0].match(/:(.*?);/)[1],
+      bstr = atob(arr[arr.length - 1]), 
+      n = bstr.length, 
+      u8arr = new Uint8Array(n);
+  while(n--){
+      u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, {type:mime});
 }
