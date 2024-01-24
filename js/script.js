@@ -201,7 +201,7 @@ if (hasGetUserMedia()) {
           const raw = JSON.stringify({
             full_name: input.value
           });
-          const response = await fetch("http://develop.kyc.passport.stuffio.com/kyc/applicants", {
+          const response = await fetch("https://develop.kyc.passport.stuffio.com/kyc/applicants", {
             method: 'POST',
             headers: myHeaders,
             body: raw,
@@ -640,7 +640,7 @@ function apiLiveness() {
     redirect: 'follow'
   };
 
-  fetch(`http://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}/face`, requestOptions)
+  fetch(`https://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}/face`, requestOptions)
     .then(response => response.json())
     .then(result => {
       console.log(result)
@@ -765,7 +765,7 @@ function apiDocument() {
     redirect: 'follow'
   };
 
-  fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
+  fetch(`https://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
     .then(response => response.json())
     .then(result => {
       console.log(result)
@@ -851,7 +851,7 @@ function apiAddress() {
     redirect: 'follow'
   };
 
-  fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
+  fetch(`https://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
     .then(response => response.json())
     .then(result => {
       console.log(result)
@@ -906,7 +906,7 @@ function apiRequestVerify() {
     redirect: 'follow'
   };
 
-  fetch(`http://develop.kyc.passport.stuffio.com/kyc/verify_requests/${store.applicantId}`, requestOptions)
+  fetch(`https://develop.kyc.passport.stuffio.com/kyc/verify_requests/${store.applicantId}`, requestOptions)
     .then(response => response.json())
     .then(result => {
       console.log(result)
@@ -929,7 +929,7 @@ function apiGetApplicantInfo() {
     redirect: 'follow'
   };
 
-  fetch(`http://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}`, requestOptions)
+  fetch(`https://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}`, requestOptions)
     .then(response => response.json())
     .then(result => {
       if (result.document_full_name) {
