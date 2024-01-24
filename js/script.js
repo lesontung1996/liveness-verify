@@ -1,6 +1,6 @@
 
 import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-import { countryList } from "./statics.js";
+import { countryList, mockApplicant, countryObject } from "./statics.js";
 
 const { FaceLandmarker, FilesetResolver } = vision;
 
@@ -62,6 +62,11 @@ const store = {
   resultAddress: {
     canvasAddress: null
   },
+  apiResponseDocument: null,
+  apiResponseLiveness: null,
+  apiResponseAddress: null,
+  apiResponseFinish: null,
+  apiResponseApplicant: null,
 }
 
 // Before we can use HandLandmarker class we must wait for it to finish
@@ -142,6 +147,7 @@ if (hasGetUserMedia()) {
     const startAddressVerifytButtons = document.querySelectorAll(".js-start-address");
     const continueVerifyDocumenttButtons = document.querySelectorAll(".js-continue-document");
     const continueVerifyAddressButtons = document.querySelectorAll(".js-continue-address");
+    const continueFinishButtons = document.querySelectorAll(".js-continue-finish");
     const showButtons = document.querySelectorAll("[class*=js-show]");
     const forms = document.querySelectorAll("form[id*=form]");
     const captureButtons = document.querySelectorAll('.js-capture-camera')
@@ -162,6 +168,9 @@ if (hasGetUserMedia()) {
     })
     startAddressVerifytButtons.forEach(button => {
       button.addEventListener("click", enableCameraForAddressVerify);
+    })
+    continueFinishButtons.forEach(button => {
+      button.addEventListener("click", apiRequestVerify);
     })
     showButtons.forEach(button => {
       const className = [...button.classList].find(className => className.includes('js-show'))
@@ -210,9 +219,9 @@ if (hasGetUserMedia()) {
           const selectDocumentType = form.querySelector('select[name=document-type]')
           const selectCountry = form.querySelector('select[name=country]')
           
-          store.formDocument.id = inputId.value
-          store.formDocument.type = selectDocumentType.value
-          store.formDocument.country = selectCountry.value
+          store.formDocument.id = inputId?.value
+          store.formDocument.type = selectDocumentType?.value
+          store.formDocument.country = selectCountry?.value
           showStep('welcome-document-verify')
         }
 
@@ -632,8 +641,11 @@ function apiLiveness() {
   };
 
   fetch(`http://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}/face`, requestOptions)
-    .then(response => response.text())
-    .then(result => console.log(result))
+    .then(response => response.json())
+    .then(result => {
+      console.log(result)
+      store.apiResponseLiveness = result
+    })
     .catch(error => console.log('error', error));
 }
 
@@ -754,8 +766,11 @@ function apiDocument() {
   };
 
   fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
-    .then(response => response.text())
-    .then(result => console.log(result))
+    .then(response => response.json())
+    .then(result => {
+      console.log(result)
+      store.apiResponseDocument = result
+    })
     .catch(error => console.log('error', error));
 }
 
@@ -788,7 +803,13 @@ function captureFrame() {
   const canvas = getCanvasFromVideo()
 
   if (verifyMode === 'document') {
-    const extractedCanvas = scanner.extractPaper(canvas, 1000, 630)
+    let extractedCanvas
+    try {
+      extractedCanvas = scanner.extractPaper(canvas, 1000, 630)
+    } catch (error) {
+      extractedCanvas = canvas
+      console.log(error)
+    }
     updateSuccessDocumentPage(extractedCanvas)
     showStep('success-document')
   } else if (verifyMode === 'address') {
@@ -831,9 +852,14 @@ function apiAddress() {
   };
 
   fetch(`http://develop.kyc.passport.stuffio.com/kyc/documents/${store.applicantId}`, requestOptions)
-    .then(response => response.text())
-    .then(result => console.log(result))
+    .then(response => response.json())
+    .then(result => {
+      console.log(result)
+      store.apiResponseAddress = result
+    })
     .catch(error => console.log('error', error));
+  
+  showStep('finish')
 }
 
 function getCanvasFromVideo(videoEl = undefined) {
@@ -858,4 +884,137 @@ function dataURLtoFile(dataurl, filename) {
       u8arr[n] = bstr.charCodeAt(n);
   }
   return new File([u8arr], filename, {type:mime});
+}
+
+function apiRequestVerify() {
+  showStep('loading')
+  const myHeaders = new Headers();
+  myHeaders.append("X-Client-Id", store.clientId);
+  myHeaders.append("Content-Type", "application/json");
+
+  const raw = JSON.stringify({
+    document_ids: [
+      store.apiResponseAddress?.document_id,
+      store.apiResponseDocument?.document_id,
+    ]
+  });
+
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
+  };
+
+  fetch(`http://develop.kyc.passport.stuffio.com/kyc/verify_requests/${store.applicantId}`, requestOptions)
+    .then(response => response.json())
+    .then(result => {
+      console.log(result)
+      store.apiResponseFinish = result
+      setTimeout(() => {
+        apiGetApplicantInfo()
+      }, 5000);
+    })
+    .catch(error => console.log('error', error));
+}
+
+function apiGetApplicantInfo() {
+  showStep('loading')
+  const myHeaders = new Headers();
+  myHeaders.append("X-Client-Id", store.clientId);
+
+  const requestOptions = {
+    method: 'GET',
+    headers: myHeaders,
+    redirect: 'follow'
+  };
+
+  fetch(`http://develop.kyc.passport.stuffio.com/kyc/applicants/${store.applicantId}`, requestOptions)
+    .then(response => response.json())
+    .then(result => {
+      if (result.document_full_name) {
+        store.apiResponseApplicant = result || mockApplicant
+        renderApplicanInfo()
+        showStep('final')
+      } else {
+        setTimeout(() => {
+          apiGetApplicantInfo()
+        }, 5000);
+      }
+    })
+    .catch(error => console.log('error', error))
+}
+
+function renderApplicanInfo() {
+  const { apiResponseApplicant: data } = store
+  console.log(store)
+  console.log(data)
+  const divElement = document.createElement('div')
+  const html = `
+    <div class="flex gap-4 justify-between">
+      <div>
+        <p class="font-bold">${data.document_full_name}</p>
+        <p>Age ${data.age}</p>
+        <p>Valid ID</p>
+        <p class="w-1/2 text-green-500">Succeed</p>
+      </div>
+      <div class="w-[85px] h-[110px] bg-gray-300 rounded">
+        <img class="w-full h-full object-cover" src="${store.resultLiveness.canvasFace?.toDataURL()}" >
+      </div>
+    </div>
+    <div class="mb-8">
+      <div class="flex border-b mb-8">
+        <p class="px-4 py-2 border-b-2 border-black">General data</p>
+      </div>
+      <div>
+        <div class="flex mb-4">
+          <span class="w-1/2">Date of Birth:</span>
+          <span class="w-1/2 text-green-500">${data.date_of_birth}</span>
+        </div>
+        <div class="flex mb-4">
+          <span class="w-1/2">Place of Birth:</span>
+          <span class="w-1/2 text-green-500">${data.place_of_birth}</span>
+        </div>
+        <div class="flex mb-4">
+          <span class="w-1/2">ID Number:</span>
+          <span class="w-1/2 text-green-500">123456789</span>
+        </div>
+        <div class="flex mb-4 ${data.date_of_expiry ? "" : "hidden"}">
+          <span class="w-1/2">Date of expiry:</span>
+          <span class="w-1/2 text-green-500">${data.date_of_expiry}</span>
+        </div>
+        <div class="flex mb-4 ${data.date_of_issue ? "" : "hidden"}">
+          <span class="w-1/2">Date of issue:</span>
+          <span class="w-1/2 text-green-500">${data.date_of_issue}</span>
+        </div>
+        <div class="flex mb-4">
+          <span class="w-1/2">Nationality:</span>
+          <span class="w-1/2 text-green-500">${countryObject[data.nationality]}</span>
+        </div>
+        <div class="flex mb-4">
+          <span class="w-1/2">Issuing country:</span>
+          <span class="w-1/2 text-green-500">${countryObject[data.issuing_country]}</span>
+        </div>
+        <div class="flex mb-4">
+          <span class="w-1/2">Residential Address:</span>
+          <span class="w-1/2 text-green-500">${data.address}</span>
+        </div>
+      </div>
+    </div>
+    <div class="mb-8">
+      <p class="font-bold mb-4">UI Card</p>
+      <div class="flex gap-4 -mx-4 px-4 overflow-auto">
+        <img class="block w-10/12 rounded-lg bg-gray-300" src="${store.resultDocument.canvasFront?.toDataURL()}" >
+        <img class="block w-10/12 rounded-lg bg-gray-300" src="${store.resultDocument.canvasBack?.toDataURL()}" >
+      </div>
+    </div>
+    <div class="mb-8">
+      <p class="font-bold mb-4">${store.formAddress.type}</p>
+      <div class="">
+        <img class="block w-full rounded-lg bg-gray-300" src="${store.resultAddress.canvasAddress?.toDataURL()}" >
+      </div>
+    </div>
+  `
+  divElement.innerHTML = html
+  document.getElementById("final-result").appendChild(divElement);
 }
