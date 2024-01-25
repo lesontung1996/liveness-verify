@@ -215,16 +215,21 @@ if (hasGetUserMedia()) {
           const raw = JSON.stringify({
             full_name: input.value
           });
-          const response = await fetch("https://develop.kyc.passport.stuffio.com/kyc/applicants", {
-            method: 'POST',
-            headers: myHeaders,
-            body: raw,
-            redirect: 'follow'
-          });
-          const responseJson = await response.json();
-          store.applicantName = responseJson.full_name
-          store.applicantId = responseJson.applicant_id
-          showStep('welcome')
+          try {
+            const response = await fetch("https://develop.kyc.passport.stuffio.com/kyc/applicants", {
+              method: 'POST',
+              headers: myHeaders,
+              body: raw,
+              redirect: 'follow'
+            });
+            const responseJson = await response.json();
+            store.applicantName = responseJson.full_name
+            store.applicantId = responseJson.applicant_id
+            showStep('welcome')
+          } catch (error) {
+            handleApiError(error)
+          }
+          
         }
 
         if (form.getAttribute('id') === 'form-identity') {
@@ -497,7 +502,7 @@ function startTestHeadInFrame() {
   const currentInterval = setInterval(() => {
     if (headInFrame === true) {
       currentFrames = currentFrames + 1
-      if (headPose === headposes.forward && capturedFace === false) {
+      if (headPose === headposes.forward && capturedFace === false && currentFrames > 3) {
         const canvas = getCanvasFromVideo()
         store.resultLiveness.canvasFace = canvas
         capturedFace = true
@@ -761,7 +766,7 @@ function apiDocument() {
       console.log(result)
       store.apiResponseDocument = result
     })
-    .catch(error => console.log('error', error));
+    .catch(error => handleApiError(error));
 }
 
 // =======================
@@ -843,7 +848,7 @@ function apiAddress() {
       store.apiResponseAddress = result
       showStep('finish')
     })
-    .catch(error => console.log('error', error));
+    .catch(error => handleApiError(error));
 }
 
 function getCanvasFromVideo(videoEl = undefined) {
@@ -899,7 +904,7 @@ function apiRequestVerify() {
         apiGetApplicantInfo()
       }, 5000);
     })
-    .catch(error => console.log('error', error));
+    .catch(error => handleApiError(error));
 }
 
 function apiGetApplicantInfo() {
@@ -926,7 +931,7 @@ function apiGetApplicantInfo() {
         }, 5000);
       }
     })
-    .catch(error => console.log('error', error))
+    .catch(error => handleApiError(error))
 }
 
 function renderApplicanInfo() {
@@ -942,8 +947,8 @@ function renderApplicanInfo() {
         <p>Valid ID</p>
         <p class="w-1/2 text-green-500">Succeed</p>
       </div>
-      <div class="w-[85px] h-[110px] bg-gray-300 rounded">
-        <img class="w-full h-full object-cover" src="${store.resultLiveness.canvasFace?.toDataURL()}" >
+      <div class="w-[100px] h-[140px]">
+        <img class="w-full h-full rounded object-cover" src="${store.resultLiveness.canvasFace?.toDataURL()}" >
       </div>
     </div>
     <div class="mb-8">
@@ -1043,4 +1048,10 @@ function cropCanvas(canvas) {
 
   croppedContext.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
   return croppedCanvas
+}
+
+function handleApiError(error) {
+  console.log(error)
+  alert('Unexpected error, please try again another time.')
+  showStep(1)
 }
