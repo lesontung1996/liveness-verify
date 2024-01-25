@@ -97,7 +97,7 @@ async function createFaceLandmarker() {
         numFaces: 1,
         selfieMode: true
     });
-    showStep('welcome-liveness')
+    showStep(1)
 };
 createFaceLandmarker();
 
