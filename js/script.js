@@ -70,7 +70,7 @@ const store = {
     canvasBack: null,
   },
   resultLiveness: {
-    canvasFace: null
+    canvasFace_1: null
   },
   resultAddress: {
     canvasAddress: null
@@ -97,7 +97,7 @@ async function createFaceLandmarker() {
         numFaces: 1,
         selfieMode: true
     });
-    showStep(1)
+    showStep('welcome-liveness')
 };
 createFaceLandmarker();
 
@@ -494,7 +494,7 @@ function startLivenessTest () {
 
 function startTestHeadInFrame() {
   let currentFrames = 0
-  let capturedFace = false
+  let capturedFace = 0
 
   const targetFrames = 10
   instructionElement.textContent = `Keep your face within the oval to start recording`
@@ -502,10 +502,10 @@ function startTestHeadInFrame() {
   const currentInterval = setInterval(() => {
     if (headInFrame === true) {
       currentFrames = currentFrames + 1
-      if (headPose === headposes.forward && capturedFace === false && currentFrames > 3) {
+      if (headPose === headposes.forward && capturedFace <= 3 && currentFrames > 3) {
+        capturedFace = capturedFace + 1
         const canvas = getCanvasFromVideo()
-        store.resultLiveness.canvasFace = canvas
-        capturedFace = true
+        store.resultLiveness[`canvasFace_${capturedFace}`] = canvas
       }
       if (currentFrames >= targetFrames) {
         showAlert()
@@ -644,14 +644,23 @@ function showAlert(type = 'success') {
 }
 
 function apiLiveness() {
-  const canvas = store.resultLiveness.canvasFace
-  const file = dataURLtoFile(canvas.toDataURL(), `face.png`)
+  let file
+  Object.keys(store.resultLiveness).forEach(key => {
+    try {
+      const canvas = store.resultLiveness[key]
+      file = dataURLtoFile(canvas.toDataURL(), `face.png`)
+      return
+    } catch (error) {
+      console.log(error)      
+    }
+  })
+
   const myHeaders = new Headers();
   myHeaders.append("X-Client-Id", store.clientId);
-
+  
   const formdata = new FormData();
   formdata.append("face", file, "face.png");
-
+  
   const requestOptions = {
     method: 'POST',
     headers: myHeaders,
@@ -665,7 +674,7 @@ function apiLiveness() {
       console.log(result)
       store.apiResponseLiveness = result
     })
-    .catch(error => console.log('error', error));
+    .catch(error => handleApiError(error));
 }
 
 
@@ -885,7 +894,8 @@ function apiRequestVerify() {
     document_ids: [
       store.apiResponseAddress?.document_id,
       store.apiResponseDocument?.document_id,
-    ]
+    ],
+    face_id: store.apiResponseLiveness?.face_id
   });
 
   const requestOptions = {
