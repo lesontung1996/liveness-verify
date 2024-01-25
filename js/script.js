@@ -27,6 +27,19 @@ const questionStatuses = {
   failed: "failed",
 }
 
+const documenQuestiontList = [
+  {
+    key: 'front',
+    text: "Capture a pic of your ID's front side in the frame",
+    title: "ID Front side"
+  },
+  {
+    key: 'back',
+    text: "Capture a pic of your ID's back side in the frame",
+    title: "ID Back side"
+  }
+]
+
 let faceLandmarker;
 let runningMode = "VIDEO";
 let webcamRunning = false;
@@ -193,6 +206,7 @@ if (hasGetUserMedia()) {
 
         if (form.id === 'form-applicant') {
           e.preventDefault()
+          showStep('loading')
           const input = form.querySelector('input')
           const myHeaders = new Headers();
           myHeaders.append("x-client-id", store.clientId);
@@ -262,7 +276,7 @@ function enableCameraForLiveness(event) {
       video.addEventListener("loadeddata", () => {
         showStep('verify')
         predictCameraForLivenes()
-      });
+      }, { once: true });
       startLivenessTest()
     });
 }
@@ -655,21 +669,6 @@ function apiLiveness() {
 
 // ==================== Start Document Verification
 
-const scanner = new jscanify()
-
-const documenQuestiontList = [
-  {
-    key: 'front',
-    text: "Capture a pic of your ID's front side in the frame",
-    title: "ID Front side"
-  },
-  {
-    key: 'back',
-    text: "Capture a pic of your ID's back side in the frame",
-    title: "ID Back side"
-  }
-]
-
 let currentDocumentStep = 0
 
 function enableCameraForDocumentVerify() {
@@ -681,23 +680,14 @@ function enableCameraForDocumentVerify() {
   verifyMode = 'document'
   webcamRunning = true;
   // getUsermedia parameters.
-  const constraints = {
-    audio: false,
-    video: {
-      facingMode: 'environment',
-      height: {
-        min: 1200,
-        min: 720,
-      },
-    }
-  };
+  const constraints = getEnviromentVideoConstraints()
   // Activate the webcam stream.
   navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
     mediaStream = stream
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
       showStep('verify')
-    });
+    }, { once: true });
   });
 }
 
@@ -755,7 +745,7 @@ function apiDocument() {
   formdata.append("document_file", file, "document.png");
   formdata.append("doc_category", "proof_of_identity");
   formdata.append("doc_type", store.formDocument.type);
-  formdata.append("manual_input", `full_name: ${store.applicantName}`);
+  formdata.append("manual_input", `identity_number: ${store.formDocument.id}`);
   formdata.append("issuing_country", store.formDocument.country);
 
   const requestOptions = {
@@ -782,20 +772,14 @@ function enableCameraForAddressVerify() {
   webcamRunning = true
   testStarted = true
   // getUsermedia parameters.
-  const constraints = {
-    audio: false,
-    video: {
-      facingMode: 'environment',
-      width: { ideal: 1280 },
-    }
-  };
+  const constraints = getEnviromentVideoConstraints()
   // Activate the webcam stream.
   navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
     mediaStream = stream
     video.srcObject = stream;
     video.addEventListener("loadeddata", () => {
       showStep('verify')
-    });
+    }, { once: true });
   });
 }
 
@@ -805,7 +789,7 @@ function captureFrame() {
   if (verifyMode === 'document') {
     let extractedCanvas
     try {
-      extractedCanvas = scanner.extractPaper(canvas, 1000, 630)
+      extractedCanvas = cropCanvas(canvas)
     } catch (error) {
       extractedCanvas = canvas
       console.log(error)
@@ -833,6 +817,7 @@ function updateSuccessAddressPage(canvas) {
 }
 
 function apiAddress() {
+  showStep('loading')
   const canvas = store.resultAddress.canvasAddress
   const file = dataURLtoFile(canvas.toDataURL(), `address.png`)
   const myHeaders = new Headers();
@@ -856,10 +841,9 @@ function apiAddress() {
     .then(result => {
       console.log(result)
       store.apiResponseAddress = result
+      showStep('finish')
     })
     .catch(error => console.log('error', error));
-  
-  showStep('finish')
 }
 
 function getCanvasFromVideo(videoEl = undefined) {
@@ -967,17 +951,17 @@ function renderApplicanInfo() {
         <p class="px-4 py-2 border-b-2 border-black">General data</p>
       </div>
       <div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.date_of_birth ? "" : "hidden"}">
           <span class="w-1/2">Date of Birth:</span>
           <span class="w-1/2 text-green-500">${data.date_of_birth}</span>
         </div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.place_of_birth ? "" : "hidden"}">
           <span class="w-1/2">Place of Birth:</span>
           <span class="w-1/2 text-green-500">${data.place_of_birth}</span>
         </div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.identity_number ? "" : "hidden"}">
           <span class="w-1/2">ID Number:</span>
-          <span class="w-1/2 text-green-500">123456789</span>
+          <span class="w-1/2 text-green-500">${data.identity_number}</span>
         </div>
         <div class="flex mb-4 ${data.date_of_expiry ? "" : "hidden"}">
           <span class="w-1/2">Date of expiry:</span>
@@ -987,15 +971,15 @@ function renderApplicanInfo() {
           <span class="w-1/2">Date of issue:</span>
           <span class="w-1/2 text-green-500">${data.date_of_issue}</span>
         </div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.nationality ? "" : "hidden"}">
           <span class="w-1/2">Nationality:</span>
           <span class="w-1/2 text-green-500">${countryObject[data.nationality]}</span>
         </div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.issuing_country ? "" : "hidden"}">
           <span class="w-1/2">Issuing country:</span>
           <span class="w-1/2 text-green-500">${countryObject[data.issuing_country]}</span>
         </div>
-        <div class="flex mb-4">
+        <div class="flex mb-4 ${data.address ? "" : "hidden"}">
           <span class="w-1/2">Residential Address:</span>
           <span class="w-1/2 text-green-500">${data.address}</span>
         </div>
@@ -1017,4 +1001,46 @@ function renderApplicanInfo() {
   `
   divElement.innerHTML = html
   document.getElementById("final-result").appendChild(divElement);
+}
+
+function isIosDevice() {
+  if (typeof window === `undefined` || typeof navigator === `undefined`) return false;
+
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || navigator.vendor || (window.opera && opera.toString() === `[object Opera]`));
+};
+
+function getEnviromentVideoConstraints() {
+  const constraints = {
+    audio: false,
+    video: {
+      facingMode: 'environment'
+    }
+  }
+
+  if (isIosDevice()) {
+    constraints.video.width = 1600
+    constraints.video.height = 1200
+  } else {
+    constraints.video.width = 1280
+  }
+
+  return constraints
+}
+
+function cropCanvas(canvas) {
+  const { width, height } = canvas
+  const ratio = height / width
+  const cropX = ratio > 1 ? width * 0.05 : width * 0.15;
+  const cropY = ratio > 1 ? height * 0.25 : height * 0.35 / 2;
+  const cropWidth = ratio > 1 ? width * 0.9 : width * 0.7;
+  const cropHeight = ratio > 1 ? height * 0.5 : height * 0.65;
+
+  const croppedCanvas = document.createElement('canvas');
+  const croppedContext = croppedCanvas.getContext('2d');
+
+  croppedCanvas.width = cropWidth
+  croppedCanvas.height = cropHeight
+
+  croppedContext.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+  return croppedCanvas
 }
