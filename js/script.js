@@ -7,10 +7,10 @@ const { FaceLandmarker, FilesetResolver } = vision;
 
 const questionList = {
   blink: "Blink your eyes",
-  // up: "Head up",
-  // down: "Head down",
-  // left: "Turn your face left",
-  // right: "Turn your face right",
+  up: "Head up",
+  down: "Head down",
+  left: "Turn your face left",
+  right: "Turn your face right",
 }
 
 const headposes = {
@@ -97,7 +97,7 @@ async function createFaceLandmarker() {
         numFaces: 1,
         selfieMode: true
     });
-    showStep('welcome-liveness')
+    showStep(1)
 };
 createFaceLandmarker();
 
