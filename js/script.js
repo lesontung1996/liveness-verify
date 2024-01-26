@@ -339,10 +339,16 @@ function setVideoDimension() {
 
     webcamOverlayRects.forEach(item => {
       const overlayWidth = ratio > 1 ? actualWidth * 0.9 : actualWidth * 0.7
-      const overlayHeight = ratio > 1 ? actualHeight * 0.5 : actualHeight * 0.65
+      let overlayHeight
+      if (verifyMode === 'document') {
+        overlayHeight = ratio > 1 ? actualHeight * 0.5 : actualHeight * 0.65
+        item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight / 2})`)
+      } else {
+        overlayHeight = ratio > 1 ? actualHeight * 0.8 : actualHeight * 0.7
+        item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight * 1.1 / 2})`)
+      }
       item.setAttribute("width", overlayWidth)
       item.setAttribute("height", overlayHeight)
-      item.setAttribute("transform", `translate(-${overlayWidth / 2},-${overlayHeight / 2})`)
     })
   })
 }
