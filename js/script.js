@@ -642,7 +642,7 @@ function showAlert(type = 'success') {
 
 function apiLiveness() {
   let file
-  for (let index = 0; index < Object.keys(store.resultLiveness).length; index++) {
+  for (let index = Object.keys(store.resultLiveness).length; index > 0; index--) {
     try {
       const key = Object.keys(store.resultLiveness)[index];
       const canvas = store.resultLiveness[key]
