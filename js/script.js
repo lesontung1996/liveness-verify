@@ -7,10 +7,10 @@ const { FaceLandmarker, FilesetResolver } = vision;
 
 const questionList = {
   blink: "Blink your eyes",
-  up: "Head up",
-  down: "Head down",
-  left: "Turn your face left",
-  right: "Turn your face right",
+  // up: "Head up",
+  // down: "Head down",
+  // left: "Turn your face left",
+  // right: "Turn your face right",
 }
 
 const headposes = {
@@ -97,7 +97,7 @@ async function createFaceLandmarker() {
         numFaces: 1,
         selfieMode: true
     });
-    showStep(1)
+    showStep('welcome-liveness')
 };
 createFaceLandmarker();
 
@@ -494,7 +494,6 @@ function startLivenessTest () {
 
 function startTestHeadInFrame() {
   let currentFrames = 0
-  let capturedFace = 0
 
   const targetFrames = 10
   instructionElement.textContent = `Keep your face within the oval to start recording`
@@ -502,10 +501,9 @@ function startTestHeadInFrame() {
   const currentInterval = setInterval(() => {
     if (headInFrame === true) {
       currentFrames = currentFrames + 1
-      if (headPose === headposes.forward && capturedFace <= 3 && currentFrames > 3) {
-        capturedFace = capturedFace + 1
+      if (headPose === headposes.forward) {
         const canvas = getCanvasFromVideo()
-        store.resultLiveness[`canvasFace_${capturedFace}`] = canvas
+        store.resultLiveness[`canvasFace_${currentFrames}`] = canvas
       }
       if (currentFrames >= targetFrames) {
         showAlert()
@@ -645,15 +643,18 @@ function showAlert(type = 'success') {
 
 function apiLiveness() {
   let file
-  Object.keys(store.resultLiveness).forEach(key => {
+  for (let index = 0; index < Object.keys(store.resultLiveness).length; index++) {
+    const key = Object.keys(store.resultLiveness)[index];
     try {
-      const canvas = store.resultLiveness[key]
+      const canvas = index < 5 ? null : store.resultLiveness[key]
       file = dataURLtoFile(canvas.toDataURL(), `face.png`)
-      return
+      if (typeof file.name === "string") {
+        break;
+      }
     } catch (error) {
       console.log(error)      
     }
-  })
+  }
 
   const myHeaders = new Headers();
   myHeaders.append("X-Client-Id", store.clientId);
