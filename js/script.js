@@ -499,12 +499,11 @@ function startTestHeadInFrame() {
   instructionElement.textContent = `Keep your face within the oval to start recording`
 
   const currentInterval = setInterval(() => {
-    if (headInFrame === true) {
-      if (headPose === headposes.forward) {
-        currentFrames = currentFrames + 1
-        const canvas = getCanvasFromVideo()
-        store.resultLiveness[`canvasFace_${currentFrames}`] = canvas
-      }
+    if (headInFrame === true && headPose === headposes.forward) {
+      currentFrames = currentFrames + 1
+      const canvas = getCanvasFromVideo()
+      store.resultLiveness[`canvasFace_${currentFrames}`] = canvas
+
       if (currentFrames >= targetFrames) {
         showAlert()
         setTimeout(() => startQuestion(0), 2000)
