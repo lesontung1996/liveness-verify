@@ -500,8 +500,8 @@ function startTestHeadInFrame() {
 
   const currentInterval = setInterval(() => {
     if (headInFrame === true) {
-      currentFrames = currentFrames + 1
       if (headPose === headposes.forward) {
+        currentFrames = currentFrames + 1
         const canvas = getCanvasFromVideo()
         store.resultLiveness[`canvasFace_${currentFrames}`] = canvas
       }
