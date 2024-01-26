@@ -644,9 +644,9 @@ function showAlert(type = 'success') {
 function apiLiveness() {
   let file
   for (let index = 0; index < Object.keys(store.resultLiveness).length; index++) {
-    const key = Object.keys(store.resultLiveness)[index];
     try {
-      const canvas = index < 5 ? null : store.resultLiveness[key]
+      const key = Object.keys(store.resultLiveness)[index];
+      const canvas = store.resultLiveness[key]
       file = dataURLtoFile(canvas.toDataURL(), `face.png`)
       if (typeof file.name === "string") {
         break;
