@@ -649,6 +649,7 @@ function apiLiveness() {
       const canvas = store.resultLiveness[key]
       file = dataURLtoFile(canvas.toDataURL(), `face.png`)
       if (typeof file.name === "string") {
+        store.resultLiveness.canvasFace = canvas
         break;
       }
     } catch (error) {
