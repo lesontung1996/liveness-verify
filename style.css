@@ -140,26 +140,33 @@ select {
   }
 }
 
-/* This used to work for the parent element of button divs */
-/* But it does not work with newer browsers, the below doesn't hide the play button parent div */
-
-*::-webkit-media-controls-panel {
-  display: none!important;
-  -webkit-appearance: none;
+.choices__inner {
+  background-color: transparent;
+  padding: 0 !important;
+  border: unset;
+  font-size: inherit;
+  min-height: unset;
+  border-bottom: 1px solid black !important;
+  border-radius: 0 !important;
 }
 
-/* Old shadow dom for play button */
-
-*::-webkit-media-controls-play-button {
-  display: none!important;
-  -webkit-appearance: none;
+.choices__list--single {
+  padding: 0.5rem 16px 0.5rem 4px;
 }
 
-/* New shadow dom for play button */
+.choices__placeholder {
+  opacity: 1;
+}
 
-/* This one works! */
+.choices[data-type*=select-one]::after {
+  right: 0;
+  transform: translateX(-50%);
+}
 
-*::-webkit-media-controls-start-playback-button {
-  display: none!important;
-  -webkit-appearance: none;
+.choices__input {
+  border-radius: 0 !important;
+}
+
+[type=search] {
+  -webkit-appearance: initial !important;
 }

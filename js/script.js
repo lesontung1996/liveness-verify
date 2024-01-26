@@ -124,16 +124,26 @@ loadTailwind()
 function renderContry() {
   const selectEls = document.querySelectorAll('.js-select-country')
   selectEls.forEach(selectElement => {
-      // Create and append new options
-      countryList.forEach(country => {
-        const optionElement = document.createElement('option');
-        optionElement.value = country.value;
-        optionElement.text = country.text;
-        selectElement.appendChild(optionElement);
-      });
+    // Create and append new options
+    countryList.forEach(country => {
+      const optionElement = document.createElement('option');
+      optionElement.value = country.value;
+      optionElement.text = country.text;
+      selectElement.appendChild(optionElement);
+    });
   })
+  initChoicesJs()
 }
 renderContry()
+
+function initChoicesJs() {
+  const selectEls = document.querySelectorAll('select')
+  selectEls.forEach(selectElement => {
+    const choices = new Choices(selectElement, {
+      shouldSort: false
+    });
+  })
+}
 
 window.addEventListener("resize", setVideoDimension);
 
